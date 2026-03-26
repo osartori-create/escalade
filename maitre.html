@@ -8,25 +8,15 @@
     <script src="https://www.gstatic.com/firebasejs/9.17.1/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.17.1/firebase-database-compat.js"></script>
     <style>
-        /* Masquer la scrollbar tout en gardant le défilement */
         .no-scrollbar::-webkit-scrollbar { display: none; }
-        .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
-        
-        #scroll-area { 
+        #scroll-area, #group-scroll-area { 
             overflow-y: auto;
             -webkit-overflow-scrolling: touch;
             height: 100%;
-            position: relative;
         }
-        
         .mountain-view { background: linear-gradient(to top, #0f172a 0%, #1e293b 100%); }
         .alpiniste { transition: all 1.5s cubic-bezier(0.34, 1.56, 0.64, 1); }
-        .timer-urgent { animation: pulse 1s infinite; color: #ef4444; }
-        @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.5; } }
-        
-        /* Fix pour éviter les sauts de ligne sur iPad */
-        table { border-collapse: collapse; width: 100%; }
-        td { white-space: nowrap; }
+        .tab-active { border-bottom: 4px solid #3b82f6; color: white; }
     </style>
 </head>
 <body class="bg-slate-900 text-white min-h-screen font-sans overflow-x-hidden p-4">
@@ -65,33 +55,47 @@
                 📥 CSV<input type="file" id="csv-file" accept=".csv" class="hidden" onchange="importStudents(this)">
             </label>
             <button onclick="toggleAutoScroll()" id="scroll-btn" class="bg-amber-600 px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest">Scroll: OFF</button>
-            <button onclick="exportIDoceo()" class="bg-emerald-800 px-4 py-2 rounded-xl text-[10px] font-black uppercase italic">iDoceo</button>
+            <button onclick="exportIDoceo()" class="bg-emerald-800 px-4 py-2 rounded-xl text-[10px] font-black uppercase italic text-white">iDoceo</button>
             <button onclick="deleteList()" class="bg-red-900 px-4 py-2 rounded-xl text-[10px] font-black uppercase">Vider</button>
         </div>
     </div>
 
     <div class="max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-3 gap-6">
+        
         <div class="lg:col-span-2 bg-slate-800 rounded-[2rem] border border-slate-700 shadow-xl flex flex-col h-[650px] overflow-hidden">
-            <div class="p-6 border-b border-slate-700 flex justify-between items-center bg-slate-800/50">
-                <h2 class="font-black uppercase italic text-slate-400 text-xs tracking-widest">Bilan de la Classe</h2>
-                <div class="flex gap-2">
-                    <input type="text" id="manual-name" placeholder="Nom Prénom..." class="bg-slate-900 border border-slate-600 rounded-xl px-4 py-2 text-xs font-bold w-48 outline-none focus:border-blue-500 text-white">
-                    <button onclick="addManualStudent()" class="bg-blue-600 px-4 py-2 rounded-xl text-lg font-black">+</button>
+            
+            <div class="flex bg-slate-900/50 border-b border-slate-700">
+                <button onclick="switchTab('eleves')" id="tab-eleves" class="flex-1 py-4 font-black uppercase text-xs tracking-widest text-slate-500 tab-active">👤 Bilan Élèves</button>
+                <button onclick="switchTab('groupes')" id="tab-groupes" class="flex-1 py-4 font-black uppercase text-xs tracking-widest text-slate-500">👥 Bilan Groupes</button>
+            </div>
+
+            <div id="view-eleves" class="flex flex-col flex-grow">
+                <div class="p-4 border-b border-slate-700/50 flex justify-between items-center">
+                    <span class="text-[10px] font-bold text-slate-500 uppercase">Liste alphabétique</span>
+                    <div class="flex gap-2">
+                        <input type="text" id="manual-name" placeholder="Nom Prénom..." class="bg-slate-900 border border-slate-600 rounded-xl px-4 py-1 text-xs font-bold w-40 outline-none focus:border-blue-500">
+                        <button onclick="addManualStudent()" class="bg-blue-600 px-3 py-1 rounded-xl font-black">+</button>
+                    </div>
+                </div>
+                <div id="scroll-area" class="no-scrollbar flex-grow">
+                    <table class="w-full text-left">
+                        <thead class="text-slate-500 text-[10px] uppercase tracking-widest sticky top-0 bg-slate-800 z-10">
+                            <tr><th class="p-4">Élève</th><th class="p-4 text-center">Poste</th><th class="p-4 text-center">Voies</th><th class="p-4 text-right pr-6">Points</th></tr>
+                        </thead>
+                        <tbody id="student-table-body"></tbody>
+                    </table>
                 </div>
             </div>
-            
-            <div id="scroll-area" class="no-scrollbar flex-grow">
-                <table id="student-table" class="w-full text-left">
-                    <thead class="text-slate-500 text-[10px] uppercase tracking-widest sticky top-0 bg-slate-800 z-10">
-                        <tr>
-                            <th class="p-4 border-b border-slate-700">Élève</th>
-                            <th class="p-4 border-b border-slate-700 text-center">Poste</th>
-                            <th class="p-4 border-b border-slate-700 text-center">Voies</th>
-                            <th class="p-4 border-b border-slate-700 text-right pr-6">Points</th>
-                        </tr>
-                    </thead>
-                    <tbody id="student-table-body"></tbody>
-                </table>
+
+            <div id="view-groupes" class="flex flex-col flex-grow hidden">
+                <div id="group-scroll-area" class="no-scrollbar flex-grow">
+                    <table class="w-full text-left">
+                        <thead class="text-slate-500 text-[10px] uppercase tracking-widest sticky top-0 bg-slate-800 z-10">
+                            <tr><th class="p-4">Groupe</th><th class="p-4 text-center">Grimpeurs</th><th class="p-4 text-center">Total Voies</th><th class="p-4 text-right pr-6">Total Mètres</th></tr>
+                        </thead>
+                        <tbody id="group-table-body"></tbody>
+                    </table>
+                </div>
             </div>
         </div>
 
@@ -101,12 +105,12 @@
                 <div id="timer-display" class="text-7xl font-black tabular-nums tracking-tighter italic">60:00</div>
             </div>
             <div class="bg-slate-800 p-8 rounded-[2rem] border border-slate-700 shadow-xl text-center">
-                <p class="text-[10px] font-bold text-slate-500 uppercase mb-2 tracking-widest italic text-center">Objectif 1km/h</p>
-                <div class="flex justify-center items-baseline gap-1 mb-4">
-                    <span id="total-m" class="text-6xl font-black text-emerald-400">0</span>
+                <p class="text-[10px] font-bold text-slate-500 uppercase mb-2 tracking-widest text-center italic">Cumul Classe</p>
+                <div class="flex justify-center items-baseline gap-1 mb-4 text-center">
+                    <span id="total-m" class="text-6xl font-black text-emerald-400 tracking-tighter">0</span>
                     <span class="text-xl text-slate-500 font-bold">/1000m</span>
                 </div>
-                <div class="w-full h-4 bg-slate-900 rounded-full p-1 border border-slate-700 overflow-hidden">
+                <div class="w-full h-4 bg-slate-900 rounded-full p-1 border border-slate-700 overflow-hidden shadow-inner">
                     <div id="progress-bar" class="h-full bg-gradient-to-r from-blue-500 to-emerald-400 rounded-full transition-all duration-1000" style="width: 0%"></div>
                 </div>
             </div>
@@ -115,19 +119,18 @@
 
     <div id="visual-view" class="fixed inset-0 mountain-view z-50 hidden flex flex-col items-center justify-end p-10">
         <button onclick="closeVisual()" class="absolute top-10 right-10 bg-white/10 p-4 rounded-full font-bold">✖ RETOUR</button>
-        <div id="visual-timer" class="absolute top-10 left-10 text-6xl font-black italic">60:00</div>
-        <div id="climb-area" class="w-full max-w-6xl h-full border-l-2 border-white/5 relative flex items-end justify-around pb-20"></div>
-        <div class="w-full max-w-4xl bg-white/5 backdrop-blur-md p-6 rounded-3xl border border-white/10 flex justify-between items-center">
-            <h2 class="text-3xl font-black italic text-blue-400 uppercase tracking-tighter">Cordée de la classe</h2>
+        <div id="visual-timer" class="absolute top-10 left-10 text-6xl font-black italic text-white/20 tracking-tighter">60:00</div>
+        <div id="climb-area" class="w-full max-w-6xl h-full border-l-2 border-white/5 relative flex items-end justify-around pb-24"></div>
+        <div class="w-full max-w-4xl bg-white/5 backdrop-blur-xl p-8 rounded-[3rem] border border-white/10 flex justify-between items-center shadow-2xl">
+            <h2 class="text-4xl font-black italic text-blue-400 uppercase tracking-tighter">Cordée de la classe</h2>
             <div class="text-right">
-                <span id="visual-total" class="text-5xl font-black text-emerald-400">0</span>
-                <span class="text-xl text-white/40 font-bold uppercase ml-2 italic">Mètres</span>
+                <span id="visual-total" class="text-6xl font-black text-emerald-400 tracking-tighter">0</span>
+                <span class="text-xl text-white/30 font-bold uppercase ml-3">Mètres</span>
             </div>
         </div>
     </div>
 
     <script>
-        // --- CONFIG FIREBASE ---
         const firebaseConfig = { apiKey: "AIzaSyB9dpOvwWiiLEV8HDYWlSA00dcApfmBlcY", databaseURL: "https://eps-escalade-default-rtdb.europe-west1.firebasedatabase.app", projectId: "eps-escalade" };
         firebase.initializeApp(firebaseConfig);
         const db = firebase.database();
@@ -138,11 +141,8 @@
         let montees = [];
         let timeLeft = 3600; 
         let timerRunning = false;
-        
-        // --- VARIABLES SCROLL ---
         let scrollInterval = null;
-        let scrollDir = 1;
-        let speed = 1.2; // Vitesse en pixels
+        let scrollDirection = 1;
 
         function init() {
             const savedList = localStorage.getItem(`students_${currentClass}`);
@@ -155,98 +155,88 @@
             });
         }
 
-        // --- FONCTION SCROLL RECOUPÉE POUR IPAD ---
-        function toggleAutoScroll() {
-            const btn = document.getElementById('scroll-btn');
-            const area = document.getElementById('scroll-area');
-            
-            if (scrollInterval) {
-                clearInterval(scrollInterval);
-                scrollInterval = null;
-                btn.innerText = "Scroll: OFF";
-                btn.classList.replace('bg-emerald-600', 'bg-amber-600');
-            } else {
-                btn.innerText = "Scroll: ON";
-                btn.classList.replace('bg-amber-600', 'bg-emerald-600');
-                
-                scrollInterval = setInterval(() => {
-                    // Calcul manuel de la limite
-                    const currentPos = area.scrollTop;
-                    const maxPos = area.scrollHeight - area.clientHeight;
-
-                    if (maxPos <= 0) return;
-
-                    // Changement de direction avec petite marge de 5px
-                    if (scrollDir === 1 && currentPos >= maxPos - 5) {
-                        scrollDir = -1;
-                    } else if (scrollDir === -1 && currentPos <= 5) {
-                        scrollDir = 1;
-                    }
-
-                    // On force le scrollTop
-                    area.scrollTop = currentPos + (scrollDir * speed);
-                }, 40); // 25 images par seconde pour la fluidité
-            }
-        }
-
-        function formatNameForClimb(fullName) {
-            const parts = fullName.split(' ');
-            if (parts.length < 2) return fullName;
-            return `${parts[0].charAt(0).toUpperCase()}. ${parts.slice(1).join(' ')}`;
+        // --- GESTION DES ONGLETS ---
+        function switchTab(tab) {
+            document.getElementById('view-eleves').classList.toggle('hidden', tab !== 'eleves');
+            document.getElementById('view-groupes').classList.toggle('hidden', tab !== 'groupes');
+            document.getElementById('tab-eleves').classList.toggle('tab-active', tab === 'eleves');
+            document.getElementById('tab-groupes').classList.toggle('tab-active', tab === 'groupes');
         }
 
         function renderAll() {
-            const body = document.getElementById('student-table-body');
-            body.innerHTML = "";
-            let total = 0; let sScores = [];
-            
+            // RENDU ÉLÈVES
+            const bodyEleves = document.getElementById('student-table-body');
+            bodyEleves.innerHTML = "";
+            let totalClasse = 0;
+            let sScores = [];
+            let groupStats = {};
+
             students.sort((a,b) => a.localeCompare(b, 'fr')).forEach(name => {
                 const post = assignments[name] || "";
                 const gNum = post.slice(0, -1);
                 const rLet = post.slice(-1);
                 const perf = montees.filter(m => post && m.groupe == gNum && m.role == rLet);
                 const score = perf.reduce((a, b) => a + b.points, 0);
+                
                 sScores.push({name, score});
-                body.innerHTML += `
-                    <tr class="border-b border-slate-700/50">
+                
+                // Préparation stats groupes
+                if(gNum) {
+                    if(!groupStats[gNum]) groupStats[gNum] = { grimpeurs: new Set(), voies: 0, metres: 0 };
+                    groupStats[gNum].grimpeurs.add(name);
+                    groupStats[gNum].voies += perf.length;
+                    groupStats[gNum].metres += score;
+                }
+
+                bodyEleves.innerHTML += `
+                    <tr class="border-b border-slate-700/50 hover:bg-slate-700/40">
                         <td class="p-4 font-bold text-sm tracking-tight">${name}</td>
-                        <td class="p-4 text-center">
-                            <input type="text" maxlength="4" value="${post}" onchange="setAssign('${name}', this.value)"
-                                class="w-14 bg-slate-900 border border-slate-600 rounded-xl text-center text-xs p-2 font-black text-blue-400 uppercase outline-none">
-                        </td>
+                        <td class="p-4 text-center"><input type="text" maxlength="4" value="${post}" onchange="setAssign('${name}', this.value)" class="w-12 bg-slate-900 border border-slate-600 rounded-lg text-center text-[10px] font-black text-blue-400 uppercase"></td>
                         <td class="p-4 text-center text-slate-500 font-bold">${perf.length}</td>
                         <td class="p-4 text-right pr-6 font-black text-emerald-400">${score.toFixed(1)}</td>
                     </tr>`;
             });
-            montees.forEach(m => total += m.points);
-            document.getElementById('total-m').innerText = document.getElementById('visual-total').innerText = Math.round(total);
-            document.getElementById('progress-bar').style.width = Math.min((total/1000)*100, 100) + "%";
+
+            // RENDU GROUPES
+            const bodyGroupes = document.getElementById('group-table-body');
+            bodyGroupes.innerHTML = "";
+            Object.keys(groupStats).sort((a,b) => parseInt(a) - parseInt(b)).forEach(g => {
+                const data = groupStats[g];
+                bodyGroupes.innerHTML += `
+                    <tr class="border-b border-slate-700/50 hover:bg-slate-700/40">
+                        <td class="p-4 font-black text-blue-400 tracking-widest italic">GROUPE ${g}</td>
+                        <td class="p-4 text-center font-bold text-slate-400">${data.grimpeurs.size}</td>
+                        <td class="p-4 text-center font-bold">${data.voies}</td>
+                        <td class="p-4 text-right pr-6">
+                            <span class="font-black text-emerald-400 text-lg">${data.metres.toFixed(1)}m</span>
+                            <div class="w-24 h-1 bg-slate-900 rounded-full mt-1 ml-auto overflow-hidden">
+                                <div class="h-full bg-emerald-500" style="width: ${Math.min(data.metres, 100)}%"></div>
+                            </div>
+                        </td>
+                    </tr>`;
+            });
+
+            montees.forEach(m => totalClasse += m.points);
+            document.getElementById('total-m').innerText = document.getElementById('visual-total').innerText = Math.round(totalClasse);
+            document.getElementById('progress-bar').style.width = Math.min((totalClasse/1000)*100, 100) + "%";
             if(!document.getElementById('visual-view').classList.contains('hidden')) updateVisual(sScores);
         }
 
-        function updateVisual(scores) {
-            const area = document.getElementById('climb-area'); area.innerHTML = "";
-            const max = Math.max(...scores.map(s => s.score), 50);
-            scores.filter(s => s.score > 0).sort((a,b) => b.score - a.score).slice(0, 15).forEach((s, i) => {
-                const h = (s.score / max) * 80;
-                const c = document.createElement('div');
-                c.className = "alpiniste absolute flex flex-col items-center"; c.style.bottom = h + "%"; c.style.left = (i * 6.5) + 5 + "%";
-                c.innerHTML = `<div class="bg-emerald-500 text-slate-900 font-black px-2 py-0.5 rounded-full text-[10px] mb-1 shadow-lg">${s.score.toFixed(0)}m</div><div class="text-4xl drop-shadow-xl">🧗</div><div class="text-[9px] font-bold mt-1 bg-slate-900/80 px-2 rounded-lg whitespace-nowrap">${formatNameForClimb(s.name)}</div>`;
-                area.appendChild(c);
-            });
-        }
-
-        function startTimer() {
-            if(timerRunning) return; timerRunning = true;
-            document.getElementById('timer-btn').innerText = "SESSION ON"; playWhistle();
-            const interval = setInterval(() => {
-                timeLeft--;
-                const mins = Math.floor(timeLeft / 60); const secs = timeLeft % 60;
-                const str = `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
-                document.getElementById('timer-display').innerText = document.getElementById('visual-timer').innerText = str;
-                if([1800, 900, 300].includes(timeLeft)) playWhistle();
-                if(timeLeft <= 0) { clearInterval(interval); playWhistle(); alert("STOP !"); }
-            }, 1000);
+        // --- LE RESTE DES FONCTIONS (SCROLL, TIMER, ETC.) ---
+        function toggleAutoScroll() {
+            const btn = document.getElementById('scroll-btn');
+            const area = document.getElementById('scroll-area');
+            if (scrollInterval) { clearInterval(scrollInterval); scrollInterval = null; btn.innerText = "Scroll: OFF"; btn.classList.replace('bg-emerald-600', 'bg-amber-600'); }
+            else {
+                btn.innerText = "Scroll: ON"; btn.classList.replace('bg-amber-600', 'bg-emerald-600');
+                scrollInterval = setInterval(() => {
+                    const currentPos = area.scrollTop; const maxPos = area.scrollHeight - area.clientHeight;
+                    if (maxPos <= 0) return;
+                    if (scrollDirection === 1 && currentPos >= maxPos - 5) scrollDirection = -1;
+                    else if (scrollDirection === -1 && currentPos <= 5) scrollDirection = 1;
+                    area.scrollTop = currentPos + (scrollDirection * 1.5);
+                }, 40);
+            }
         }
 
         function setAssign(name, val) {
@@ -265,6 +255,22 @@
                 localStorage.setItem(`students_${currentClass}`, JSON.stringify(students));
                 renderAll();
             };
+        }
+
+        function startTimer() {
+            if(timerRunning) return; timerRunning = true;
+            document.getElementById('timer-btn').innerText = "CHRONO ON"; playWhistle();
+            const interval = setInterval(() => {
+                timeLeft--; updateTimerUI();
+                if([1800, 900, 300].includes(timeLeft)) playWhistle();
+                if(timeLeft <= 0) { clearInterval(interval); playWhistle(); alert("STOP !"); }
+            }, 1000);
+        }
+
+        function updateTimerUI() {
+            const mins = Math.floor(timeLeft / 60); const secs = timeLeft % 60;
+            const str = `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+            document.getElementById('timer-display').innerText = document.getElementById('visual-timer').innerText = str;
         }
 
         function openVisual() { document.getElementById('visual-view').classList.remove('hidden'); renderAll(); }
@@ -286,6 +292,20 @@
             const blob = new Blob(["\ufeff" + csv], { type: 'text/csv;charset=utf-8;' });
             const url = window.URL.createObjectURL(blob);
             const a = document.createElement('a'); a.href = url; a.download = `Export_${currentClass}.csv`; a.click();
+        }
+
+        function updateVisual(scores) {
+            const area = document.getElementById('climb-area'); area.innerHTML = "";
+            const max = Math.max(...scores.map(s => s.score), 50);
+            scores.filter(s => s.score > 0).sort((a,b) => b.score - a.score).slice(0, 15).forEach((s, i) => {
+                const h = (s.score / max) * 85;
+                const c = document.createElement('div');
+                c.className = "alpiniste absolute flex flex-col items-center"; c.style.bottom = h + "%"; c.style.left = (i * 6.5) + 2 + "%";
+                const parts = s.name.split(' ');
+                const displayName = parts.length >= 2 ? `${parts[0].charAt(0).toUpperCase()}. ${parts.slice(1).join(' ')}` : s.name;
+                c.innerHTML = `<div class="bg-emerald-500 text-slate-900 font-black px-2 py-0.5 rounded-full text-[10px] mb-1 shadow-lg shadow-emerald-500/30">${s.score.toFixed(0)}m</div><div class="text-4xl filter drop-shadow-md">🧗</div><div class="text-[9px] font-bold mt-1 bg-slate-900/80 px-2 rounded-lg backdrop-blur-sm">${displayName}</div>`;
+                area.appendChild(c);
+            });
         }
 
         init();
