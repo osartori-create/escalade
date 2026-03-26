@@ -1,83 +1,268 @@
-<style>
-    .no-scrollbar::-webkit-scrollbar { display: none; }
-    #scroll-area { 
-        -webkit-overflow-scrolling: touch; /* Force la fluidité sur iPad */
-        overflow-y: auto;
-        height: 100%;
-    }
-    .scrolling-container { scroll-behavior: smooth; }
-    .alpiniste { transition: all 1.5s cubic-bezier(0.34, 1.56, 0.64, 1); }
-</style>
-
-<script>
-    // --- (Garde ta config Firebase et tes variables ici) ---
-
-    // --- NOUVELLE LOGIQUE DE SCROLL ROBUSTE ---
-    function toggleAutoScroll() {
-        const btn = document.getElementById('scroll-btn');
-        const area = document.getElementById('scroll-area');
-        
-        if (scrollInt) {
-            clearInterval(scrollInt);
-            scrollInt = null;
-            btn.innerText = "Scroll: OFF";
-            btn.classList.replace('bg-emerald-600', 'bg-amber-600');
-        } else {
-            btn.innerText = "Scroll: ON";
-            btn.classList.replace('bg-amber-600', 'bg-emerald-600');
-            
-            scrollInt = setInterval(() => {
-                // On calcule l'espace restant à chaque cycle
-                const max = area.scrollHeight - area.clientHeight;
-                
-                if (max <= 0) return;
-
-                if (scrollDirection === 1 && area.scrollTop >= max - 5) {
-                    scrollDirection = -1; // Arrivé en bas -> on remonte
-                } else if (scrollDirection === -1 && area.scrollTop <= 5) {
-                    scrollDirection = 1; // Arrivé en haut -> on redescend
-                }
-                
-                // Déplacement par petit saut pour éviter les saccades Safari
-                area.scrollBy({ top: scrollDirection * 2, behavior: 'auto' });
-            }, 50);
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Maître - EPS Escalade</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.17.1/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.17.1/firebase-database-compat.js"></script>
+    <style>
+        .no-scrollbar::-webkit-scrollbar { display: none; }
+        #scroll-area { 
+            -webkit-overflow-scrolling: touch; 
+            overflow-y: auto;
+            scroll-behavior: smooth;
         }
-    }
+        .mountain-view { background: linear-gradient(to top, #0f172a 0%, #1e293b 100%); }
+        .alpiniste { transition: all 1.5s cubic-bezier(0.34, 1.56, 0.64, 1); }
+        .timer-urgent { animation: pulse 1s infinite; color: #ef4444; }
+        @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.5; } }
+    </style>
+</head>
+<body class="bg-slate-900 text-white min-h-screen font-sans overflow-x-hidden p-4">
 
-    // --- NOUVEAU FORMATAGE DES NOMS POUR LA CORDÉE ---
-    function formatNameForClimb(fullName) {
-        const parts = fullName.split(' ');
-        if (parts.length < 2) return fullName;
-        
-        const nom = parts[0];
-        const prenom = parts.slice(1).join(' ');
-        // Retourne "A. Amélie"
-        return `${nom.charAt(0).toUpperCase()}. ${prenom}`;
-    }
-
-    function updateVisual(scores) {
-        const area = document.getElementById('climb-area');
-        area.innerHTML = "";
-        const max = Math.max(...scores.map(s => s.score), 50);
-        
-        scores.filter(s => s.score > 0).sort((a,b) => b.score - a.score).slice(0, 15).forEach((s, i) => {
-            const h = (s.score / max) * 80;
-            const c = document.createElement('div');
-            c.className = "alpiniste absolute flex flex-col items-center";
-            c.style.bottom = h + "%";
-            c.style.left = (i * 6.5) + 5 + "%";
+    <div id="admin-interface" class="p-4 max-w-7xl mx-auto">
+        <div class="flex flex-wrap justify-between items-center gap-4 mb-6 bg-slate-800 p-4 rounded-3xl border border-slate-700 shadow-2xl">
+            <div class="flex items-center gap-4">
+                <h1 class="text-2xl font-black italic text-blue-500 uppercase tracking-tighter">EPS CLIMB</h1>
+                <select id="class-select" onchange="changeClass(this.value)" class="bg-slate-900 border border-slate-600 rounded-xl px-4 py-2 text-sm font-bold text-blue-400">
+                    <option value="402">CLASSE 402</option>
+                    <option value="301">CLASSE 301</option>
+                    <option value="NEW">+ NOUVELLE</option>
+                </select>
+            </div>
             
-            // On appelle ici la nouvelle fonction de formatage
-            const displayName = formatNameForClimb(s.name);
-            
-            c.innerHTML = `
-                <div class="bg-emerald-500 text-slate-900 font-black px-2 py-0.5 rounded-full text-[10px] mb-1">${s.score.toFixed(0)}m</div>
-                <div class="text-4xl">🧗</div>
-                <div class="text-[9px] font-bold mt-1 bg-slate-900/80 px-2 rounded-lg whitespace-nowrap">${displayName}</div>
-            `;
-            area.appendChild(c);
-        });
-    }
+            <div class="flex gap-2">
+                <button onclick="playWhistle()" class="bg-red-600 px-6 py-2 rounded-xl text-2xl shadow-lg active:scale-95 transition-all">📢</button>
+                <button onclick="startTimer()" id="timer-btn" class="bg-emerald-600 px-4 py-2 rounded-xl text-[10px] font-black uppercase">Départ 60mn</button>
+                <button onclick="openVisual()" class="bg-indigo-600 px-5 py-2 rounded-xl text-[10px] font-black uppercase shadow-lg">🏆 Cordée</button>
+                <label class="cursor-pointer bg-blue-600 px-4 py-2 rounded-xl text-[10px] font-black italic">
+                    📥 CSV (LOCAL)
+                    <input type="file" id="csv-file" accept=".csv" class="hidden" onchange="importStudents(this)">
+                </label>
+                <button onclick="toggleAutoScroll()" id="scroll-btn" class="bg-amber-600 px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest">Scroll: OFF</button>
+                <button onclick="exportIDoceo()" class="bg-emerald-800 px-4 py-2 rounded-xl text-[10px] font-black uppercase italic">iDoceo</button>
+                <button onclick="deleteList()" class="bg-red-900 px-4 py-2 rounded-xl text-[10px] font-black uppercase">Vider</button>
+            </div>
+        </div>
 
-    // --- (Garde toutes tes autres fonctions : import, render, firebase...) ---
-</script>
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            <div class="lg:col-span-2 bg-slate-800 rounded-[2rem] border border-slate-700 shadow-xl flex flex-col h-[650px] overflow-hidden">
+                <div class="p-6 border-b border-slate-700 flex justify-between items-center bg-slate-800/50">
+                    <h2 class="font-black uppercase italic text-slate-400 text-xs tracking-widest">Bilan de la Classe</h2>
+                    <div class="flex gap-2">
+                        <input type="text" id="manual-name" placeholder="Nom Prénom..." class="bg-slate-900 border border-slate-600 rounded-xl px-4 py-2 text-xs font-bold w-48 outline-none focus:border-blue-500 text-white">
+                        <button onclick="addManualStudent()" class="bg-blue-600 px-4 py-2 rounded-xl text-lg font-black">+</button>
+                    </div>
+                </div>
+                <div id="scroll-area" class="no-scrollbar flex-grow">
+                    <table class="w-full text-left">
+                        <thead class="text-slate-500 text-[10px] uppercase tracking-widest sticky top-0 bg-slate-800 z-10">
+                            <tr><th class="p-4">Élève</th><th class="p-4 text-center">Poste</th><th class="p-4 text-center">Voies</th><th class="p-4 text-right pr-6">Points</th></tr>
+                        </thead>
+                        <tbody id="student-table-body"></tbody>
+                    </table>
+                </div>
+            </div>
+
+            <div class="space-y-6">
+                <div class="bg-slate-800 p-8 rounded-[2rem] border border-slate-700 shadow-xl text-center">
+                    <p class="text-[10px] font-bold text-slate-500 uppercase mb-2 tracking-widest italic">Temps Restant</p>
+                    <div id="timer-display" class="text-7xl font-black tabular-nums tracking-tighter italic">60:00</div>
+                </div>
+                <div class="bg-slate-800 p-8 rounded-[2rem] border border-slate-700 shadow-xl text-center">
+                    <p class="text-[10px] font-bold text-slate-500 uppercase mb-2 tracking-widest italic text-center">Objectif 1km/h</p>
+                    <div class="flex justify-center items-baseline gap-1 mb-4 text-center">
+                        <span id="total-m" class="text-6xl font-black text-emerald-400">0</span>
+                        <span class="text-xl text-slate-500 font-bold">/1000m</span>
+                    </div>
+                    <div class="w-full h-4 bg-slate-900 rounded-full p-1 border border-slate-700 overflow-hidden">
+                        <div id="progress-bar" class="h-full bg-gradient-to-r from-blue-500 to-emerald-400 rounded-full transition-all duration-1000" style="width: 0%"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div id="visual-view" class="fixed inset-0 mountain-view z-50 hidden flex flex-col items-center justify-end p-10">
+        <button onclick="closeVisual()" class="absolute top-10 right-10 bg-white/10 p-4 rounded-full font-black text-sm">✖ RETOUR</button>
+        <div id="visual-timer" class="absolute top-10 left-10 text-6xl font-black tabular-nums italic">60:00</div>
+        <div id="climb-area" class="w-full max-w-6xl h-full border-l-2 border-white/5 relative flex items-end justify-around pb-20"></div>
+        <div class="w-full max-w-4xl bg-white/5 backdrop-blur-md p-6 rounded-3xl border border-white/10 flex justify-between items-center">
+            <h2 class="text-3xl font-black italic text-blue-400 uppercase tracking-tighter">Cordée de la classe</h2>
+            <div class="text-right">
+                <span id="visual-total" class="text-5xl font-black text-emerald-400">0</span>
+                <span class="text-xl text-white/40 font-bold uppercase ml-2 italic">Mètres</span>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // --- CONFIG FIREBASE ---
+        const firebaseConfig = { apiKey: "AIzaSyB9dpOvwWiiLEV8HDYWlSA00dcApfmBlcY", databaseURL: "https://eps-escalade-default-rtdb.europe-west1.firebasedatabase.app", projectId: "eps-escalade" };
+        firebase.initializeApp(firebaseConfig);
+        const db = firebase.database();
+
+        let currentClass = "402";
+        let students = [];
+        let assignments = {};
+        let montees = [];
+        let timeLeft = 3600; 
+        let timerRunning = false;
+        let scrollInterval = null;
+        let scrollDirection = 1;
+
+        // --- AUDIO SYNTHÉTIQUE (POUR IPAD) ---
+        const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        function playWhistle() {
+            if (audioCtx.state === 'suspended') audioCtx.resume();
+            const beep = (f, d, v) => {
+                const o = audioCtx.createOscillator(); const g = audioCtx.createGain();
+                o.type = "square"; o.frequency.setValueAtTime(f, audioCtx.currentTime);
+                g.gain.setValueAtTime(v, audioCtx.currentTime);
+                g.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + d);
+                o.connect(g); g.connect(audioCtx.destination);
+                o.start(); o.stop(audioCtx.currentTime + d);
+            };
+            beep(2500, 0.2, 0.1); setTimeout(() => beep(2500, 0.5, 0.1), 300);
+        }
+
+        // --- CHARGEMENT DES DONNÉES (LOCALSTORAGE) ---
+        function init() {
+            const savedList = localStorage.getItem(`students_${currentClass}`);
+            students = savedList ? JSON.parse(savedList) : [];
+            const savedAssign = localStorage.getItem(`assign_${currentClass}`);
+            assignments = savedAssign ? JSON.parse(savedAssign) : {};
+            db.ref(currentClass + '/montees').on('value', snap => {
+                montees = snap.val() ? Object.values(snap.val()) : [];
+                renderAll();
+            });
+        }
+
+        // --- FORMATAGE NOM CORDÉE (A. Amélie) ---
+        function formatNameForClimb(fullName) {
+            const parts = fullName.split(' ');
+            if (parts.length < 2) return fullName;
+            const nom = parts[0];
+            const prenom = parts.slice(1).join(' ');
+            return `${nom.charAt(0).toUpperCase()}. ${prenom}`;
+        }
+
+        function renderAll() {
+            const body = document.getElementById('student-table-body');
+            body.innerHTML = "";
+            let total = 0; let sScores = [];
+            students.sort((a,b) => a.localeCompare(b, 'fr')).forEach(name => {
+                const post = assignments[name] || "";
+                const gNum = post.slice(0, -1);
+                const rLet = post.slice(-1);
+                const perf = montees.filter(m => post && m.groupe == gNum && m.role == rLet);
+                const score = perf.reduce((a, b) => a + b.points, 0);
+                sScores.push({name, score});
+                body.innerHTML += `
+                    <tr class="border-b border-slate-700/50 hover:bg-slate-700/40">
+                        <td class="p-4 font-bold text-sm tracking-tight">${name}</td>
+                        <td class="p-4 text-center">
+                            <input type="text" maxlength="4" value="${post}" onchange="setAssign('${name}', this.value)"
+                                class="w-14 bg-slate-900 border border-slate-600 rounded-xl text-center text-xs p-2 font-black text-blue-400 uppercase outline-none">
+                        </td>
+                        <td class="p-4 text-center text-slate-500 font-bold">${perf.length}</td>
+                        <td class="p-4 text-right pr-6 font-black text-emerald-400">${score.toFixed(1)}</td>
+                    </tr>`;
+            });
+            montees.forEach(m => total += m.points);
+            document.getElementById('total-m').innerText = document.getElementById('visual-total').innerText = Math.round(total);
+            document.getElementById('progress-bar').style.width = Math.min((total/1000)*100, 100) + "%";
+            if(!document.getElementById('visual-view').classList.contains('hidden')) updateVisual(sScores);
+        }
+
+        function updateVisual(scores) {
+            const area = document.getElementById('climb-area'); area.innerHTML = "";
+            const max = Math.max(...scores.map(s => s.score), 50);
+            scores.filter(s => s.score > 0).sort((a,b) => b.score - a.score).slice(0, 15).forEach((s, i) => {
+                const h = (s.score / max) * 80;
+                const c = document.createElement('div');
+                c.className = "alpiniste absolute flex flex-col items-center"; c.style.bottom = h + "%"; c.style.left = (i * 6.5) + 5 + "%";
+                const displayName = formatNameForClimb(s.name);
+                c.innerHTML = `<div class="bg-emerald-500 text-slate-900 font-black px-2 py-0.5 rounded-full text-[10px] mb-1">${s.score.toFixed(0)}m</div><div class="text-4xl drop-shadow-lg">🧗</div><div class="text-[9px] font-bold mt-1 bg-slate-900/80 px-2 rounded-lg whitespace-nowrap">${displayName}</div>`;
+                area.appendChild(c);
+            });
+        }
+
+        // --- GESTION SCROLL (FIX SAFARI IPAD) ---
+        function toggleAutoScroll() {
+            const btn = document.getElementById('scroll-btn');
+            const area = document.getElementById('scroll-area');
+            if (scrollInterval) {
+                clearInterval(scrollInterval); scrollInterval = null;
+                btn.innerText = "Scroll: OFF"; btn.classList.replace('bg-emerald-600', 'bg-amber-600');
+            } else {
+                btn.innerText = "Scroll: ON"; btn.classList.replace('bg-amber-600', 'bg-emerald-600');
+                scrollInterval = setInterval(() => {
+                    const max = area.scrollHeight - area.clientHeight;
+                    if (max <= 0) return;
+                    if (scrollDirection === 1 && area.scrollTop >= max - 5) scrollDirection = -1;
+                    else if (scrollDirection === -1 && area.scrollTop <= 5) scrollDirection = 1;
+                    area.scrollBy({ top: scrollDirection * 2, behavior: 'auto' });
+                }, 50);
+            }
+        }
+
+        // --- CHRONO ---
+        function startTimer() {
+            if(timerRunning) return; timerRunning = true;
+            document.getElementById('timer-btn').innerText = "SESSION ON"; playWhistle();
+            const interval = setInterval(() => {
+                timeLeft--;
+                const mins = Math.floor(timeLeft / 60); const secs = timeLeft % 60;
+                const str = `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+                document.getElementById('timer-display').innerText = document.getElementById('visual-timer').innerText = str;
+                if([1800, 900, 300].includes(timeLeft)) playWhistle();
+                if(timeLeft <= 0) { clearInterval(interval); playWhistle(); alert("STOP !"); }
+            }, 1000);
+        }
+
+        // --- AUTRES FONCTIONS ---
+        function setAssign(name, val) {
+            const v = val.toUpperCase().trim();
+            if(v.length >= 2) assignments[name] = v; else delete assignments[name];
+            localStorage.setItem(`assign_${currentClass}`, JSON.stringify(assignments));
+            renderAll();
+        }
+        function importStudents(input) {
+            const reader = new FileReader(); reader.readAsText(input.files[0], "ISO-8859-1"); 
+            reader.onload = (e) => {
+                const rows = e.target.result.split(/\r?\n/);
+                let list = rows.map(r => r.replace(/;/g, ' ').replace(/"/g, '').replace(/\s+/g, ' ').trim()).filter(r => r.length > 3);
+                if(list.length > 0 && (list[0].toLowerCase().includes("nom"))) list.shift();
+                students = list;
+                localStorage.setItem(`students_${currentClass}`, JSON.stringify(students));
+                renderAll();
+            };
+        }
+        function openVisual() { document.getElementById('visual-view').classList.remove('hidden'); renderAll(); }
+        function closeVisual() { document.getElementById('visual-view').classList.add('hidden'); }
+        function changeClass(v) { currentClass = (v === "NEW") ? (prompt("Classe :") || currentClass) : v; init(); }
+        function deleteList() { if(confirm("Supprimer la liste ?")) { localStorage.removeItem(`students_${currentClass}`); localStorage.removeItem(`assign_${currentClass}`); location.reload(); } }
+        function addManualStudent() {
+            const name = document.getElementById('manual-name').value.trim();
+            if(name.length > 2) { students.push(name); localStorage.setItem(`students_${currentClass}`, JSON.stringify(students)); renderAll(); }
+            document.getElementById('manual-name').value = "";
+        }
+        function exportIDoceo() {
+            let csv = "Nom,Total_Metres,Nb_Voies\n";
+            students.forEach(name => {
+                const post = assignments[name] || "";
+                const perf = montees.filter(m => post && m.groupe == post.slice(0,-1) && m.role == post.slice(-1));
+                csv += `${name},${perf.reduce((a, b) => a + b.points, 0).toFixed(2)},${perf.length}\n`;
+            });
+            const blob = new Blob(["\ufeff" + csv], { type: 'text/csv;charset=utf-8;' });
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement('a'); a.href = url; a.download = `Export_${currentClass}.csv`; a.click();
+        }
+
+        init();
+    </script>
+</body>
+</html>
