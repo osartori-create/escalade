@@ -12,14 +12,14 @@
         .tab-active { border-bottom: 4px solid #3b82f6 !important; color: white !important; background: rgba(59, 130, 246, 0.2); }
         .mountain-view { background: linear-gradient(to top, #0f172a 0%, #1e293b 100%); position: relative; overflow: hidden; }
         .tab-btn { pointer-events: auto !important; z-index: 50; cursor: pointer; }
-        #view-eleves { overflow-y: auto; height: 100%; scroll-behavior: auto; -webkit-overflow-scrolling: touch; }
+        #view-eleves { overflow-y: auto; height: 100%; -webkit-overflow-scrolling: touch; position: relative; }
         #view-groupes, #view-history { overflow-y: auto; height: 100%; -webkit-overflow-scrolling: touch; }
         .alpiniste { transition: all 1.5s cubic-bezier(0.34, 1.56, 0.64, 1); position: absolute; }
     </style>
 </head>
 <body class="bg-slate-900 text-white min-h-screen font-sans p-4 overflow-hidden">
 
-    <div class="max-w-7xl mx-auto flex flex-wrap justify-between items-center gap-4 mb-4 bg-slate-800 p-4 rounded-3xl border border-slate-700 shadow-2xl relative z-40">
+    <div class="max-w-7xl mx-auto flex flex-wrap justify-between items-center gap-4 mb-4 bg-slate-800 p-4 rounded-3xl border border-slate-700 shadow-2xl relative z-40 text-[10px] font-black uppercase">
         <div class="flex items-center gap-4">
             <h1 class="text-xl font-black italic text-blue-500 uppercase tracking-tighter">EPS CLIMB</h1>
             <div class="flex items-center gap-2 bg-slate-900 p-1 rounded-xl border border-slate-700">
@@ -30,16 +30,23 @@
             </div>
         </div>
 
-        <div class="flex gap-2 flex-wrap text-[10px] font-black uppercase">
+        <div class="flex gap-2 flex-wrap">
             <label class="cursor-pointer bg-slate-700 hover:bg-slate-600 px-3 py-2 rounded-xl">
                 📥 CSV <input type="file" accept=".csv" class="hidden" onchange="importStudents(this)">
             </label>
-            <button onclick="exportIDoceo()" class="bg-indigo-600 hover:bg-indigo-500 px-3 py-2 rounded-xl italic">📊 iDoceo</button>
+            <button onclick="exportIDoceo()" class="bg-indigo-600 px-3 py-2 rounded-xl italic">📊 iDoceo</button>
             <button onclick="playWhistle()" class="bg-red-600 px-4 py-2 rounded-xl text-xl active:scale-95">📢</button>
             <button onclick="openVisual()" class="bg-indigo-600 px-3 py-2 rounded-xl italic">🏆 Montagne</button>
             <button onclick="startTimer()" id="timer-btn" class="bg-emerald-600 px-3 py-2 rounded-xl">Top 60'</button>
             <button onclick="toggleAutoScroll()" id="scroll-btn" class="bg-amber-600 px-3 py-2 rounded-xl">Scroll: OFF</button>
-            <button onclick="secureDelete()" class="bg-red-900 px-3 py-2 rounded-xl border border-red-500/30">Vider</button>
+            
+            <div class="relative group">
+                <button class="bg-red-900 px-3 py-2 rounded-xl border border-red-500/30">Vider...</button>
+                <div class="absolute right-0 mt-2 w-48 bg-slate-800 border border-slate-700 rounded-xl shadow-2xl hidden group-hover:block z-50 overflow-hidden">
+                    <button onclick="secureDelete('scores')" class="w-full text-left p-3 hover:bg-red-900/40 border-b border-slate-700">Vider les scores</button>
+                    <button onclick="secureDelete('eleves')" class="w-full text-left p-3 hover:bg-red-900/40">Vider liste élèves</button>
+                </div>
+            </div>
         </div>
     </div>
 
@@ -64,13 +71,13 @@
         </div>
 
         <div class="flex flex-col gap-4 h-[78vh]">
-            <div class="bg-slate-800 p-6 rounded-[2rem] border border-slate-700 shadow-xl text-center"><div id="timer-display" class="text-6xl font-black tabular-nums tracking-tighter italic">60:00</div></div>
+            <div class="bg-slate-800 p-6 rounded-[2rem] border border-slate-700 shadow-xl text-center"><div id="timer-display" class="text-6xl font-black tabular-nums italic">60:00</div></div>
             <div class="bg-slate-800 p-6 rounded-[2rem] border border-slate-700 shadow-xl text-center">
-                <p class="text-[10px] font-bold text-slate-500 uppercase mb-2 italic">Objectif 1000m</p>
+                <p class="text-[10px] font-bold text-slate-500 uppercase italic">Objectif 1000m</p>
                 <div class="text-4xl font-black text-emerald-400 mb-2"><span id="total-m">0</span>m</div>
                 <div class="w-full h-3 bg-slate-900 rounded-full overflow-hidden border border-slate-700 shadow-inner"><div id="progress-bar" class="h-full bg-emerald-500 transition-all duration-1000" style="width: 0%"></div></div>
             </div>
-            <div class="bg-slate-800 p-5 rounded-[2rem] border border-slate-700 flex-grow overflow-hidden"><h3 class="text-[10px] font-bold text-blue-400 uppercase mb-3 italic">🏆 Top 5 Live</h3><div id="top-5-list" class="space-y-2 text-xs"></div></div>
+            <div class="bg-slate-800 p-5 rounded-[2rem] border border-slate-700 flex-grow overflow-hidden"><h3 class="text-[10px] font-bold text-blue-400 uppercase italic">🏆 Top 5 Live</h3><div id="top-5-list" class="space-y-2 text-xs"></div></div>
         </div>
     </div>
 
@@ -145,13 +152,7 @@
             }).join('');
 
             document.getElementById('history-table-body').innerHTML = list.slice().reverse().map(m => `
-                <tr class="border-b border-white/5">
-                    <td class="p-3 font-bold text-blue-300 uppercase">G${m.groupe}${m.role}</td>
-                    <td class="p-3 text-center font-bold italic text-[9px]">V.${m.voie_num} (${m.couleur})</td>
-                    <td class="p-3"><select onchange="recalc('${m.id}', null, this.value)" class="bg-slate-900 border border-slate-700 rounded text-[10px] uppercase">${Object.keys(bareme).map(c => `<option value="${c}" ${m.cotation == c ? 'selected' : ''}>${c.toUpperCase()}</option>`).join('')}</select></td>
-                    <td class="p-3 font-black text-emerald-400">${(parseFloat(m.points) || 0).toFixed(1)}</td>
-                    <td class="p-3 text-right"><button onclick="deleteEntry('${m.id}')">🗑️</button></td>
-                </tr>
+                <tr class="border-b border-white/5"><td class="p-3 font-bold text-blue-300 uppercase">G${m.groupe}${m.role}</td><td class="p-3 font-bold italic text-[9px]">V.${m.voie_num} (${m.couleur})</td><td class="p-3 text-right font-black text-emerald-400">${(parseFloat(m.points) || 0).toFixed(1)}</td><td class="p-3 text-right"><button onclick="deleteEntry('${m.id}')">🗑️</button></td></tr>
             `).join('');
 
             document.getElementById('top-5-list').innerHTML = studentScores.sort((a,b) => b.score - a.score).slice(0, 5).map((s, i) => `
@@ -163,34 +164,36 @@
             updateVisual(studentScores);
         }
 
-        // --- SCROLL AUTOMATIQUE ---
+        // --- VIDAGE SÉCURISÉ ---
+        function secureDelete(mode) {
+            const promptMsg = mode === 'scores' ? "VIDER LES SCORES (session du jour) ?" : "SUPPRIMER LA LISTE D'ÉLÈVES (CSV) ?";
+            const code = prompt(promptMsg + "\nEntrez le code RNE pour valider :");
+            
+            if (code === "0680013V") {
+                if (mode === 'scores') {
+                    db.ref(currentClass + '/montees').remove();
+                } else {
+                    localStorage.removeItem(`students_${currentClass}`);
+                    localStorage.removeItem(`assign_${currentClass}`);
+                    location.reload();
+                }
+            } else if (code !== null) {
+                alert("Code RNE incorrect.");
+            }
+        }
+
+        // --- SCROLL AUTO ---
         function toggleAutoScroll() {
-            const btn = document.getElementById('scroll-btn');
-            const area = document.getElementById('view-eleves'); 
-            if (scrollInt) {
-                clearInterval(scrollInt); scrollInt = null;
-                btn.innerText = "Scroll: OFF"; btn.classList.replace('bg-emerald-600', 'bg-amber-600');
-            } else {
-                btn.innerText = "Scroll: ON"; btn.classList.replace('bg-amber-600', 'bg-emerald-600');
+            const btn = document.getElementById('scroll-btn'), area = document.getElementById('view-eleves'); 
+            if (scrollInt) { clearInterval(scrollInt); scrollInt = null; btn.innerText = "Scroll: OFF"; btn.classList.replace('bg-emerald-600', 'bg-amber-600'); }
+            else { btn.innerText = "Scroll: ON"; btn.classList.replace('bg-amber-600', 'bg-emerald-600');
                 scrollInt = setInterval(() => {
                     const max = area.scrollHeight - area.clientHeight;
                     if (max <= 0) return;
                     if (scrollDirection === 1 && area.scrollTop >= max - 2) scrollDirection = -1;
                     else if (scrollDirection === -1 && area.scrollTop <= 2) scrollDirection = 1;
                     area.scrollTop += (scrollDirection * 1.5);
-                }, 40);
-            }
-        }
-
-        // --- VIDAGE SÉCURISÉ ---
-        function secureDelete() {
-            const code = prompt("ENTREZ LE CODE DE SÉCURITÉ POUR VIDER LES SCORES :\n(Indice : RNE de l'établissement)");
-            if (code === "0680013V") {
-                if(confirm("Confirmer la suppression de TOUS les scores de la classe " + currentClass + " ?")) {
-                    db.ref(currentClass + '/montees').remove();
-                }
-            } else if (code !== null) {
-                alert("Code incorrect. Action annulée.");
+                }, 45); 
             }
         }
 
@@ -202,64 +205,24 @@
                 const climber = document.createElement('div');
                 climber.className = "alpiniste flex flex-col items-center";
                 climber.style.bottom = h + "%"; climber.style.left = (i * 6.5) + 5 + "%";
-                const p = s.name.split(' ');
-                const display = p.length >= 2 ? `${p[0].charAt(0).toUpperCase()}. ${p.slice(1).join(' ')}` : s.name;
+                const display = s.name.split(' ').length >= 2 ? `${s.name.split(' ')[0][0]}. ${s.name.split(' ')[1]}` : s.name;
                 climber.innerHTML = `<div class="bg-emerald-500 text-slate-900 font-black px-2 py-0.5 rounded-full text-[10px] mb-1 shadow-lg">${s.score.toFixed(0)}m</div><div class="text-4xl">🧗</div><div class="text-[9px] font-bold mt-1 bg-slate-900/80 px-2 rounded-lg whitespace-nowrap">${display}</div>`;
                 area.appendChild(climber);
             });
         }
 
         function setAssign(n, v) { assignments[n] = v.toUpperCase().trim(); localStorage.setItem(`assign_${currentClass}`, JSON.stringify(assignments)); renderAll(); }
-        function createNewClass() {
-            const name = prompt("Nom de la classe (ex: 401) :");
-            if(name) {
-                const clean = name.trim().toUpperCase();
-                db.ref('active_classes/' + clean).set(true).then(() => {
-                    currentClass = clean; localStorage.setItem('lastClass', clean); location.reload();
-                });
-            }
-        }
+        function createNewClass() { const name = prompt("Nom de la classe :"); if(name) { db.ref('active_classes/' + name.toUpperCase().trim()).set(true); currentClass = name.toUpperCase().trim(); localStorage.setItem('lastClass', currentClass); location.reload(); } }
         function changeClass(v) { if(v) { currentClass = v; localStorage.setItem('lastClass', v); loadClassData(); } }
         function deleteEntry(id) { if(confirm("Supprimer ?")) db.ref(currentClass + '/montees').child(id).remove(); }
         function switchTab(t) { ['eleves', 'groupes', 'history'].forEach(tab => { document.getElementById('view-'+tab).classList.toggle('hidden', tab !== t); document.getElementById('tab-'+tab).classList.toggle('tab-active', tab === t); }); }
         function openVisual() { document.getElementById('visual-view').classList.remove('hidden'); renderAll(); }
         function closeVisual() { document.getElementById('visual-view').classList.add('hidden'); }
         function startTimer() { if(!timerRunning) { timerRunning = true; playWhistle(); setInterval(() => { timeLeft--; const m = Math.floor(timeLeft/60), s = timeLeft%60; document.getElementById('timer-display').innerText = `${m.toString().padStart(2,'0')}:${s.toString().padStart(2,'0')}`; }, 1000); } }
-        
-        function importStudents(input) {
-            const reader = new FileReader(); reader.readAsText(input.files[0], "ISO-8859-1");
-            reader.onload = (e) => {
-                let l = e.target.result.split(/\r?\n/).map(r => r.replace(/;/g,' ').replace(/"/g,'').trim()).filter(r => r.length > 3);
-                if(l.length > 0 && l[0].toLowerCase().includes("nom")) l.shift();
-                students = l; localStorage.setItem(`students_${currentClass}`, JSON.stringify(students)); renderAll();
-            };
-        }
-
-        function exportIDoceo() {
-            let csv = "Nom,Total_Metres,Nb_Voies\n";
-            students.forEach(n => {
-                const p = assignments[n] || "";
-                const perf = Object.values(monteesRaw).filter(m => p && m.groupe == p.slice(0,-1) && m.role == p.slice(-1));
-                csv += `${n},${perf.reduce((a,b) => a+(parseFloat(b.points)||0), 0).toFixed(2)},${perf.length}\n`;
-            });
-            const blob = new Blob(["\ufeff" + csv], { type: 'text/csv;charset=utf-8;' });
-            const url = window.URL.createObjectURL(blob);
-            const a = document.createElement('a'); a.href = url; a.download = `Export_${currentClass}.csv`; a.click();
-        }
-
+        function importStudents(input) { const reader = new FileReader(); reader.readAsText(input.files[0], "ISO-8859-1"); reader.onload = (e) => { let l = e.target.result.split(/\r?\n/).map(r => r.replace(/;/g,' ').replace(/"/g,'').trim()).filter(r => r.length > 3); if(l.length > 0 && l[0].toLowerCase().includes("nom")) l.shift(); students = l; localStorage.setItem(`students_${currentClass}`, JSON.stringify(students)); renderAll(); }; }
+        function exportIDoceo() { let csv = "Nom,Total_Metres,Nb_Voies\n"; students.forEach(n => { const p = assignments[n] || ""; const perf = Object.values(monteesRaw).filter(m => p && m.groupe == p.slice(0,-1) && m.role == p.slice(-1)); csv += `${n},${perf.reduce((a,b) => a+(parseFloat(b.points)||0), 0).toFixed(2)},${perf.length}\n`; }); const blob = new Blob(["\ufeff" + csv], { type: 'text/csv;charset=utf-8;' }); const url = window.URL.createObjectURL(blob); const a = document.createElement('a'); a.href = url; a.download = `Export_${currentClass}.csv`; a.click(); }
         const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-        function playWhistle() {
-            if (audioCtx.state === 'suspended') audioCtx.resume();
-            const beep = (f, d, v) => {
-                const o = audioCtx.createOscillator(); const g = audioCtx.createGain();
-                o.type = "square"; o.frequency.setValueAtTime(f, audioCtx.currentTime);
-                g.gain.setValueAtTime(v, audioCtx.currentTime);
-                g.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + d);
-                o.connect(g); g.connect(audioCtx.destination);
-                o.start(); o.stop(audioCtx.currentTime + d);
-            };
-            beep(2500, 0.2, 0.1); setTimeout(() => beep(2500, 0.5, 0.1), 300);
-        }
+        function playWhistle() { if (audioCtx.state === 'suspended') audioCtx.resume(); const beep = (f, d, v) => { const o = audioCtx.createOscillator(); const g = audioCtx.createGain(); o.type = "square"; o.frequency.setValueAtTime(f, audioCtx.currentTime); g.gain.setValueAtTime(v, audioCtx.currentTime); g.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + d); o.connect(g); g.connect(audioCtx.destination); o.start(); o.stop(audioCtx.currentTime + d); }; beep(2500, 0.2, 0.1); setTimeout(() => beep(2500, 0.5, 0.1), 300); }
 
         init();
     </script>
