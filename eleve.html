@@ -9,126 +9,107 @@
     <script src="https://www.gstatic.com/firebasejs/9.17.1/firebase-database-compat.js"></script>
     <style>
         body { background: radial-gradient(circle at center, #1e293b 0%, #0f172a 100%); }
-        .btn-active:active { transform: scale(0.95); }
+        .active-choice { border: 3px solid #3b82f6 !important; background: #1e3a8a !important; }
+        .tc-gradient { background: linear-gradient(45deg, #ff0000, #ff7f00, #ffff00, #00ff00, #0000ff, #4b0082, #8b00ff); }
     </style>
 </head>
-<body class="text-white min-h-screen font-sans flex items-center justify-center p-4">
+<body class="text-white min-h-screen font-sans flex items-center justify-center p-2">
 
-    <div class="w-full max-w-md bg-slate-800/80 backdrop-blur-xl p-8 rounded-[2.5rem] border border-white/10 shadow-2xl">
-        <h1 class="text-4xl font-black italic text-center text-blue-500 mb-8 tracking-tighter uppercase">EPS CLIMB</h1>
+    <div class="w-full max-w-md bg-slate-800/90 backdrop-blur-xl p-6 rounded-[2rem] border border-white/10 shadow-2xl">
+        <div class="flex justify-between items-center mb-6">
+            <h1 class="text-2xl font-black italic text-blue-500 uppercase">EPS CLIMB</h1>
+            <select id="class-select" class="bg-slate-900 border border-slate-700 rounded-lg p-2 text-xs font-bold text-blue-400 outline-none"></select>
+        </div>
 
-        <div class="space-y-6">
-            <div>
-                <label class="text-[10px] font-bold text-slate-500 uppercase ml-2 tracking-widest italic">1. Choisis ta classe</label>
-                <select id="class-select" class="w-full bg-slate-900 border-2 border-slate-700 rounded-2xl p-4 text-xl font-bold text-white outline-none focus:border-blue-500 appearance-none">
-                    <option value="">Chargement des classes...</option>
-                </select>
+        <div class="space-y-4">
+            <div class="grid grid-cols-2 gap-3">
+                <div class="bg-slate-900/50 p-3 rounded-2xl border border-white/5">
+                    <label class="text-[10px] font-bold text-slate-500 uppercase italic">Ton Code (3A...)</label>
+                    <input type="text" id="id-input" maxlength="4" class="w-full bg-transparent text-2xl font-black text-blue-400 text-center outline-none uppercase">
+                </div>
+                <div class="bg-slate-900/50 p-3 rounded-2xl border border-white/5">
+                    <label class="text-[10px] font-bold text-slate-500 uppercase italic">N° Voie</label>
+                    <input type="number" id="voie-num" min="1" max="21" class="w-full bg-transparent text-2xl font-black text-white text-center outline-none">
+                </div>
             </div>
 
             <div>
-                <label class="text-[10px] font-bold text-slate-500 uppercase ml-2 tracking-widest italic">2. Ton code (ex: 3A, 10C)</label>
-                <input type="text" id="id-input" maxlength="4" placeholder="Tape ton code ici" class="w-full bg-slate-900 border-2 border-slate-700 rounded-2xl p-5 text-3xl font-black text-blue-400 uppercase text-center outline-none focus:border-blue-500 shadow-inner">
+                <label class="text-[10px] font-bold text-slate-500 uppercase ml-2 italic">Couleur des prises</label>
+                <div class="grid grid-cols-4 gap-2 mt-1" id="color-grid">
+                    <button onclick="setCol('bleue','#3b82f6')" class="h-10 rounded-lg bg-blue-600 border-2 border-transparent" id="col-bleue"></button>
+                    <button onclick="setCol('rouge','#ef4444')" class="h-10 rounded-lg bg-red-600 border-2 border-transparent" id="col-rouge"></button>
+                    <button onclick="setCol('verte','#22c55e')" class="h-10 rounded-lg bg-green-600 border-2 border-transparent" id="col-verte"></button>
+                    <button onclick="setCol('jaune','#eab308')" class="h-10 rounded-lg bg-yellow-500 border-2 border-transparent" id="col-jaune"></button>
+                    <button onclick="setCol('rose','#ec4899')" class="h-10 rounded-lg bg-pink-500 border-2 border-transparent" id="col-rose"></button>
+                    <button onclick="setCol('orange','#f97316')" class="h-10 rounded-lg bg-orange-500 border-2 border-transparent" id="col-orange"></button>
+                    <button onclick="setCol('sable','#d1bfa7')" class="h-10 rounded-lg bg-[#d1bfa7] border-2 border-transparent text-black font-bold text-[10px]" id="col-sable">SABLE</button>
+                    <button onclick="setCol('tc','multi')" class="h-10 rounded-lg tc-gradient border-2 border-transparent font-bold text-[10px]" id="col-tc">TC</button>
+                </div>
             </div>
 
             <div>
-                <label class="text-[10px] font-bold text-slate-500 uppercase ml-2 tracking-widest italic">3. Cotation réussie</label>
-                <div class="grid grid-cols-3 gap-2 mt-2" id="difficulty-grid">
-                    </div>
+                <label class="text-[10px] font-bold text-slate-500 uppercase ml-2 italic">Cotation (Points)</label>
+                <div class="grid grid-cols-4 gap-2 mt-1" id="cot-grid"></div>
             </div>
 
-            <button onclick="sendData()" id="send-btn" class="w-full bg-emerald-600 hover:bg-emerald-500 py-6 rounded-3xl text-xl font-black uppercase tracking-widest shadow-xl btn-active transition-all mt-4">Envoyer ma montée !</button>
-            
-            <div id="status-msg" class="text-center font-bold h-8 flex items-center justify-center text-lg mt-2"></div>
+            <button onclick="sendData()" id="send-btn" class="w-full bg-emerald-600 py-5 rounded-3xl text-xl font-black uppercase shadow-xl active:scale-95 transition-all mt-2">Valider la montée</button>
+            <div id="status-msg" class="text-center font-bold h-6 text-sm"></div>
         </div>
     </div>
 
     <script>
-        // --- CONFIG FIREBASE (IDENTIQUE AU MAITRE) ---
-        const firebaseConfig = { 
-            apiKey: "AIzaSyB9dpOvwWiiLEV8HDYWlSA00dcApfmBlcY", 
-            databaseURL: "https://eps-escalade-default-rtdb.europe-west1.firebasedatabase.app", 
-            projectId: "eps-escalade" 
-        };
-        
+        const firebaseConfig = { apiKey: "AIzaSyB9dpOvwWiiLEV8HDYWlSA00dcApfmBlcY", databaseURL: "https://eps-escalade-default-rtdb.europe-west1.firebasedatabase.app", projectId: "eps-escalade" };
         firebase.initializeApp(firebaseConfig);
         const db = firebase.database();
-        
-        const bareme = { "4a": 1, "4b": 1.1, "4c": 1.2, "5a": 1.3, "5b": 1.4, "5c": 1.5, "6a": 1.6, "6b": 1.8, "6c": 2 };
-        let selectedDiff = "4a";
 
-        // Initialisation de la grille de difficulté
-        const grid = document.getElementById('difficulty-grid');
-        Object.keys(bareme).forEach(cot => {
-            const btn = document.createElement('button');
-            btn.innerText = cot.toUpperCase();
-            btn.id = "btn-" + cot;
-            btn.className = "py-3 rounded-xl font-black border-2 border-slate-700 bg-slate-900/50 hover:bg-slate-700 transition-all";
-            btn.onclick = () => selectDifficulty(cot);
-            grid.appendChild(btn);
+        const bareme = { "4a": 1, "4b": 1.1, "4c": 1.2, "5a": 1.3, "5b": 1.4, "5c": 1.5, "6a": 1.6, "6b": 1.8, "6c": 2 };
+        let selCol = "sable"; let selCot = "4a";
+
+        // Génération Cotations
+        const cotGrid = document.getElementById('cot-grid');
+        Object.keys(bareme).forEach(c => {
+            const b = document.createElement('button');
+            b.innerText = c.toUpperCase(); b.id = "cot-"+c;
+            b.className = "py-2 rounded-xl font-black border-2 border-slate-700 bg-slate-900/50";
+            b.onclick = () => setCot(c);
+            cotGrid.appendChild(b);
         });
 
-        function selectDifficulty(cot) {
-            selectedDiff = cot;
-            Object.keys(bareme).forEach(c => {
-                const b = document.getElementById("btn-" + c);
-                b.classList.toggle('border-blue-500', c === cot);
-                b.classList.toggle('bg-blue-600', c === cot);
-            });
+        function setCol(c, hex) {
+            selCol = c;
+            document.querySelectorAll('#color-grid button').forEach(b => b.classList.remove('active-choice'));
+            document.getElementById('col-'+c).classList.add('active-choice');
         }
-        selectDifficulty("4a");
 
-        // Chargement des classes actives
+        function setCot(c) {
+            selCot = c;
+            document.querySelectorAll('#cot-grid button').forEach(b => b.classList.remove('active-choice'));
+            document.getElementById('cot-'+c).classList.add('active-choice');
+        }
+
+        // Init par défaut
+        setCol('sable', '#d1bfa7'); setCot('4a');
+
         db.ref('active_classes').on('value', snap => {
-            const select = document.getElementById('class-select');
             const data = snap.val();
-            if (!data) {
-                select.innerHTML = '<option value="">Aucune classe active</option>';
-                return;
-            }
-            const classes = Object.keys(data);
-            select.innerHTML = '<option value="">-- Sélectionne --</option>' + 
-                               classes.map(c => `<option value="${c}">${c}</option>`).join('');
+            if(data) document.getElementById('class-select').innerHTML = Object.keys(data).map(cl => `<option value="${cl}">${cl}</option>`).join('');
         });
 
         function sendData() {
-            const classId = document.getElementById('class-select').value;
-            const codeInput = document.getElementById('id-input').value.toUpperCase().trim();
-            const btn = document.getElementById('send-btn');
-            const status = document.getElementById('status-msg');
+            const cl = document.getElementById('class-select').value;
+            const code = document.getElementById('id-input').value.toUpperCase().trim();
+            const n = document.getElementById('voie-num').value;
+            if(!cl || code.length < 2 || !n) return;
 
-            if(!classId || codeInput.length < 2) {
-                status.innerText = "❌ Erreur de saisie !";
-                status.className = "text-red-400 font-bold mt-2";
-                return;
-            }
+            const pts = 9 * bareme[selCot] * (selCol === 'tc' ? 0.9 : 1);
 
-            btn.disabled = true;
-            btn.innerText = "Envoi en cours...";
-
-            const g = codeInput.slice(0, -1);
-            const r = codeInput.slice(-1);
-            const points = 9 * (bareme[selectedDiff] || 1);
-
-            db.ref(classId + '/montees').push({
-                groupe: g,
-                role: r,
-                voie: selectedDiff,
-                hauteur: 9,
-                points: points,
-                timestamp: Date.now()
+            db.ref(cl + '/montees').push({
+                groupe: code.slice(0,-1), role: code.slice(-1),
+                voie_num: n, couleur: selCol, cotation: selCot, points: pts, timestamp: Date.now()
             }).then(() => {
-                status.innerText = "✅ MONTÉE VALIDÉE !";
-                status.className = "text-emerald-400 font-bold mt-2";
+                document.getElementById('status-msg').innerText = "✅ ENVOYÉ !";
                 document.getElementById('id-input').value = "";
-                
-                setTimeout(() => {
-                    status.innerText = "";
-                    btn.disabled = false;
-                    btn.innerText = "Envoyer ma montée !";
-                }, 2500);
-            }).catch(err => {
-                status.innerText = "❌ Erreur de connexion";
-                btn.disabled = false;
+                setTimeout(() => document.getElementById('status-msg').innerText = "", 2000);
             });
         }
     </script>
